@@ -1,0 +1,40 @@
+services:
+  # API hot-reload (remplace juste la commande et monte le code)
+  api:
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./api/app:/app/app:delegated
+
+  # Nginx désactivé en dev; on utilise Vite
+  frontend:
+    profiles: ["prod"]
+
+  # Frontend dev (Vite) – host network = le plus simple sous Linux
+  frontend_dev:
+    profiles: ["dev"]
+    image: node:20-alpine
+    network_mode: "host"
+    working_dir: /app
+    user: "root"
+    environment:
+      VITE_API_BASE: "http://localhost:8000"
+      CHOKIDAR_USEPOLLING: "true"
+      NPM_CONFIG_FUND: "false"
+      NPM_CONFIG_AUDIT: "false"
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    command: >
+      sh -lc "
+        rm -f package-lock.json &&
+        npm install &&
+        npm run dev -- --host --port 5173
+      "
+    depends_on:
+      - api
+
+volumes:
+  frontend_node_modules:
+
+
+

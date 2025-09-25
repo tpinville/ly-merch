@@ -1,0 +1,20 @@
+# Node / frontend
+node_modules/
+dist/
+.vite/
+*.log
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Docker
+.env
+*.env.local
+volume_data/
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
