@@ -3,6 +3,12 @@ API routers for fashion trends data
 """
 
 from typing import List, Optional
+import requests
+import tempfile
+import os
+import base64
+from PIL import Image
+import anthropic
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, and_, or_, text, case
@@ -14,7 +20,8 @@ from .models import (
     TrendResponse, TrendSummaryResponse,
     TrendImageResponse, ProductResponse, ProductSummaryResponse,
     TrendSearchParams, VerticalSearchParams, ImageSearchParams, ProductSearchParams,
-    ProductCreateRequest, ProductBulkUploadRequest, ProductBulkUploadResponse
+    ProductCreateRequest, ProductBulkUploadRequest, ProductBulkUploadResponse,
+    AnalyseProductRequest, AnalyseProductResponse
 )
 
 # Create routers
@@ -23,6 +30,7 @@ verticals_router = APIRouter(prefix="/verticals", tags=["verticals"])
 trends_router = APIRouter(prefix="/trends", tags=["trends"])
 images_router = APIRouter(prefix="/images", tags=["images"])
 products_router = APIRouter(prefix="/products", tags=["products"])
+analysis_router = APIRouter(prefix="/analysis", tags=["analysis"])
 
 
 # CATEGORIES ENDPOINTS
@@ -683,3 +691,316 @@ def get_image_stats(db: Session = Depends(get_db)):
         "total_images": total_count,
         "by_type": {stat.image_type: stat.count for stat in stats}
     }
+
+
+# ANALYSIS ENDPOINTS
+
+@analysis_router.post("/analyseProduct", response_model=AnalyseProductResponse)
+def analyse_product(
+    request: AnalyseProductRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Analyze a product from image URL and return matching trends based on types.
+
+    This endpoint downloads an image from the provided URL, analyzes it,
+    and returns trends that match the specified types/categories.
+    """
+
+    # Validate URL format
+    if not request.url.startswith(('http://', 'https://')):
+        raise HTTPException(
+            status_code=400,
+            detail="URL must start with http:// or https://"
+        )
+
+    # Parse types string - could be comma-separated, space-separated, etc.
+    type_keywords = [t.strip().lower() for t in request.types.replace(',', ' ').split() if t.strip()]
+
+    if not type_keywords:
+        raise HTTPException(
+            status_code=400,
+            detail="Types parameter cannot be empty"
+        )
+
+    # Download and analyze the image with Claude
+    image_info = {}
+    claude_analysis = {}
+    claude_attributes = []
+
+    try:
+        # Initialize Claude client or demo mode
+        anthropic_api_key = os.environ.get('ANTHROPIC_API_KEY')
+        demo_mode = os.environ.get('CLAUDE_DEMO_MODE', 'false').lower() == 'true'
+
+        if demo_mode:
+            print("🎭 Running in Claude demo mode...")
+            client = None
+        elif not anthropic_api_key or anthropic_api_key == 'your_api_key_here':
+            raise HTTPException(
+                status_code=500,
+                detail="Claude API key not configured. Please set ANTHROPIC_API_KEY environment variable."
+            )
+        else:
+            client = anthropic.Anthropic(api_key=anthropic_api_key)
+
+        # Download the image
+        print(f"📥 Downloading image from: {request.url}")
+        response = requests.get(request.url, timeout=30, headers={
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        })
+        response.raise_for_status()
+
+        # Check if the content is an image
+        content_type = response.headers.get('content-type', '').lower()
+        if not content_type.startswith('image/'):
+            raise HTTPException(
+                status_code=400,
+                detail=f"URL does not point to an image. Content-Type: {content_type}"
+            )
+
+        # Get image info and prepare for Claude analysis
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as temp_file:
+            temp_file.write(response.content)
+            temp_path = temp_file.name
+
+        try:
+            # Open and analyze the image
+            with Image.open(temp_path) as img:
+                image_info = {
+                    "width": img.width,
+                    "height": img.height,
+                    "format": img.format,
+                    "mode": img.mode,
+                    "size_bytes": len(response.content)
+                }
+                print(f"📸 Image downloaded: {img.width}x{img.height}, {img.format}, {len(response.content)} bytes")
+
+            # Encode image for Claude API
+            with open(temp_path, "rb") as image_file:
+                image_data = base64.b64encode(image_file.read()).decode('utf-8')
+
+            # Analyze image with Claude or use demo mode
+            if demo_mode:
+                print("🎭 Generating demo Claude analysis...")
+                # Simulate Claude analysis for demo purposes
+                user_type_lower = request.types.lower()
+                if 'sneaker' in user_type_lower or 'shoe' in user_type_lower:
+                    claude_analysis = {
+                        "category": "sneakers",
+                        "attributes": ["low-top", "lace-up", "canvas", "rubber sole", "casual"],
+                        "materials": ["canvas", "rubber"],
+                        "style_tags": ["athletic", "casual", "streetwear", "comfortable"],
+                        "description": "Casual low-top sneakers with canvas upper and rubber sole, suitable for everyday wear",
+                        "confidence": "medium",
+                        "demo_mode": True
+                    }
+                    claude_attributes = ["sneakers", "low-top", "lace-up", "canvas", "rubber", "athletic", "casual", "streetwear"]
+                elif 'boot' in user_type_lower:
+                    claude_analysis = {
+                        "category": "boots",
+                        "attributes": ["ankle-height", "leather", "lace-up", "combat-style"],
+                        "materials": ["leather", "rubber"],
+                        "style_tags": ["rugged", "durable", "outdoor", "military-inspired"],
+                        "description": "Sturdy ankle-height boots with leather construction and combat styling",
+                        "confidence": "medium",
+                        "demo_mode": True
+                    }
+                    claude_attributes = ["boots", "ankle", "leather", "lace-up", "combat", "rugged", "outdoor"]
+                elif 'dress' in user_type_lower:
+                    claude_analysis = {
+                        "category": "dress",
+                        "attributes": ["knee-length", "fitted", "sleeveless", "A-line"],
+                        "materials": ["cotton", "polyester"],
+                        "style_tags": ["elegant", "formal", "versatile", "classic"],
+                        "description": "Elegant knee-length dress with fitted bodice and A-line silhouette",
+                        "confidence": "medium",
+                        "demo_mode": True
+                    }
+                    claude_attributes = ["dress", "knee-length", "fitted", "sleeveless", "elegant", "formal", "classic"]
+                else:
+                    claude_analysis = {
+                        "category": "fashion item",
+                        "attributes": ["stylish", "modern", "versatile"],
+                        "materials": ["textile"],
+                        "style_tags": ["contemporary", "trendy"],
+                        "description": "Modern fashion item with contemporary styling",
+                        "confidence": "low",
+                        "demo_mode": True
+                    }
+                    claude_attributes = ["fashion", "stylish", "modern", "contemporary", "trendy"]
+            else:
+                print("🤖 Analyzing image with Claude...")
+
+                message = client.messages.create(
+                    model="claude-3-5-sonnet-20241022",
+                    max_tokens=1000,
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "image",
+                                    "source": {
+                                        "type": "base64",
+                                        "media_type": content_type,
+                                        "data": image_data
+                                    }
+                                },
+                                {
+                                    "type": "text",
+                                    "text": f"""Analyze this fashion product image and identify key attributes. Focus on:
+
+1. Product category (e.g., sneakers, boots, dress, pants, shirt, etc.)
+2. Style characteristics (e.g., high-top, low-top, chunky, slim, etc.)
+3. Design elements (e.g., lace-up, slip-on, platform, heel type, etc.)
+4. Material appearance (e.g., leather, canvas, knit, etc.)
+5. Color and patterns
+6. Target gender/demographic
+7. Any distinctive features
+
+Based on these user-specified types: "{request.types}"
+
+Please provide a JSON response with:
+- "category": main product category
+- "attributes": list of key style and design attributes
+- "materials": apparent materials
+- "style_tags": relevant style keywords
+- "description": brief overall description
+- "confidence": confidence level (high/medium/low)
+
+Focus on attributes that would help match this product to fashion trends in a database."""
+                                }
+                            ]
+                        }
+                    ]
+                )
+
+                # Parse Claude's response
+                claude_response = message.content[0].text
+                print(f"🎯 Claude analysis: {claude_response}")
+
+                try:
+                    # Try to parse as JSON
+                    import json
+                    if claude_response.strip().startswith('{'):
+                        claude_analysis = json.loads(claude_response)
+                    else:
+                        # Extract JSON from response if it's wrapped in text
+                        json_start = claude_response.find('{')
+                        json_end = claude_response.rfind('}') + 1
+                        if json_start != -1 and json_end > json_start:
+                            claude_analysis = json.loads(claude_response[json_start:json_end])
+                        else:
+                            claude_analysis = {"raw_response": claude_response}
+
+                    # Extract attributes for database matching
+                    if "attributes" in claude_analysis:
+                        claude_attributes.extend(claude_analysis["attributes"])
+                    if "style_tags" in claude_analysis:
+                        claude_attributes.extend(claude_analysis["style_tags"])
+                    if "category" in claude_analysis:
+                        claude_attributes.append(claude_analysis["category"])
+
+                except json.JSONDecodeError:
+                    claude_analysis = {"raw_response": claude_response}
+                    # Extract keywords from raw response
+                    claude_attributes = [word.strip() for word in claude_response.lower().split()
+                                       if len(word.strip()) > 3][:10]  # Limit to 10 keywords
+
+        finally:
+            # Clean up temporary file
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
+
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Failed to download image: {str(e)}"
+        )
+    except anthropic.APIError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Claude API error: {str(e)}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error processing image: {str(e)}"
+        )
+
+    # Build query to find matching trends using Claude's analysis
+    # Combine user types with Claude's identified attributes
+    all_keywords = type_keywords + [attr.lower().strip() for attr in claude_attributes if attr]
+    # Remove duplicates while preserving order
+    unique_keywords = list(dict.fromkeys(all_keywords))
+
+    print(f"🔍 Searching for trends with keywords: {unique_keywords[:10]}...")  # Log first 10 keywords
+
+    # Start with base query joining trends with verticals and categories
+    query = db.query(Trend).join(Vertical).join(Category)
+
+    # Create OR conditions for matching against multiple fields
+    conditions = []
+
+    for keyword in unique_keywords:
+        if len(keyword) > 2:  # Only consider meaningful keywords
+            # Match against trend name, description, category name, and vertical name
+            keyword_conditions = or_(
+                Trend.name.ilike(f'%{keyword}%'),
+                Trend.description.ilike(f'%{keyword}%'),
+                Category.name.ilike(f'%{keyword}%'),
+                Vertical.name.ilike(f'%{keyword}%')
+            )
+            conditions.append(keyword_conditions)
+
+    # Combine all keyword conditions with OR (any keyword match)
+    if conditions:
+        query = query.filter(or_(*conditions))
+    else:
+        # Fallback to original user types if no Claude attributes
+        for keyword in type_keywords:
+            keyword_conditions = or_(
+                Trend.name.ilike(f'%{keyword}%'),
+                Trend.description.ilike(f'%{keyword}%'),
+                Category.name.ilike(f'%{keyword}%'),
+                Vertical.name.ilike(f'%{keyword}%')
+            )
+            conditions.append(keyword_conditions)
+        if conditions:
+            query = query.filter(or_(*conditions))
+
+    # Execute query and get results
+    matching_trends = query.distinct().order_by(Trend.name).all()
+
+    # Convert to TrendSummaryResponse objects
+    trend_responses = []
+    for trend in matching_trends:
+        # Count images for this trend
+        image_count = db.query(func.count(TrendImage.id)).filter(TrendImage.trend_id == trend.id).scalar()
+        positive_count = db.query(func.count(TrendImage.id)).filter(
+            and_(TrendImage.trend_id == trend.id, TrendImage.image_type == 'positive')
+        ).scalar()
+        negative_count = db.query(func.count(TrendImage.id)).filter(
+            and_(TrendImage.trend_id == trend.id, TrendImage.image_type == 'negative')
+        ).scalar()
+
+        trend_responses.append(TrendSummaryResponse(
+            id=trend.id,
+            trend_id=trend.trend_id,
+            name=trend.name,
+            description=trend.description,
+            image_hash=trend.image_hash,
+            image_count=image_count,
+            positive_image_count=positive_count,
+            negative_image_count=negative_count
+        ))
+
+    return AnalyseProductResponse(
+        trends=trend_responses,
+        analyzed_url=request.url,
+        analyzed_types=request.types,
+        total_trends=len(trend_responses),
+        image_info=image_info,
+        claude_analysis=claude_analysis
+    )

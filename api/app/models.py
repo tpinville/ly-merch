@@ -344,3 +344,19 @@ class ProductBulkUploadResponse(BaseModel):
     skipped_count: int
     error_count: int
     errors: Optional[List[str]] = None
+
+
+class AnalyseProductRequest(BaseModel):
+    """Request schema for product analysis"""
+    url: str
+    types: str
+
+
+class AnalyseProductResponse(BaseModel):
+    """Response schema for product analysis"""
+    trends: List[TrendSummaryResponse]
+    analyzed_url: str
+    analyzed_types: str
+    total_trends: int
+    image_info: Optional[dict] = None
+    claude_analysis: Optional[dict] = None

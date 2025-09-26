@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from .database import get_db, get_db_health
-from .routers import categories_router, verticals_router, trends_router, images_router, products_router
+from .routers import categories_router, verticals_router, trends_router, images_router, products_router, analysis_router
 
 API_LOG_LEVEL = os.getenv("API_LOG_LEVEL", "info")
 CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
@@ -43,6 +43,7 @@ app.include_router(verticals_router, prefix="/api/v1")
 app.include_router(trends_router, prefix="/api/v1")
 app.include_router(images_router, prefix="/api/v1")
 app.include_router(products_router, prefix="/api/v1")
+app.include_router(analysis_router, prefix="/api/v1")
 
 
 @app.get("/")
@@ -58,6 +59,7 @@ def root():
             "trends": "/api/v1/trends",
             "images": "/api/v1/images",
             "products": "/api/v1/products",
+            "analysis": "/api/v1/analysis",
             "health": "/health"
         }
     }
