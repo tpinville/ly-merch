@@ -3,9 +3,10 @@ import TrendsViewer from './TrendsViewer';
 import VerticalsList from './VerticalsList';
 import CategoriesList from './CategoriesList';
 import ProductsList from './ProductsList';
+import ProductBulkUpload from './ProductBulkUpload';
 import type { Vertical, Category, ProductSummary } from '../types/api';
 
-type ViewMode = 'dashboard' | 'trends' | 'verticals' | 'categories' | 'products';
+type ViewMode = 'dashboard' | 'trends' | 'verticals' | 'categories' | 'products' | 'bulk-upload';
 
 export default function FashionTrendsDashboard() {
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
@@ -82,6 +83,15 @@ export default function FashionTrendsDashboard() {
           >
             Products
           </button>
+          <button
+            onClick={() => setViewMode('bulk-upload')}
+            style={{
+              ...styles.navButton,
+              ...(viewMode === 'bulk-upload' ? styles.navButtonActive : {}),
+            }}
+          >
+            Bulk Upload
+          </button>
         </div>
       </nav>
 
@@ -154,6 +164,12 @@ export default function FashionTrendsDashboard() {
               onProductSelect={handleProductSelect}
               selectedCategoryId={selectedCategory?.id}
             />
+          </div>
+        )}
+
+        {viewMode === 'bulk-upload' && (
+          <div style={styles.fullContent}>
+            <ProductBulkUpload />
           </div>
         )}
       </main>

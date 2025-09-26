@@ -187,7 +187,7 @@ export default function ProductCSVUpload({
     setUploadStatus(`Uploading ${parsedRows.length} products...`);
 
     try {
-      const response = await fetch('/api/v1/products/bulk', {
+      const response = await fetch('http://localhost:8001/api/v1/products/bulk', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

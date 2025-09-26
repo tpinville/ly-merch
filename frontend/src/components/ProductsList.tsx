@@ -52,7 +52,7 @@ export default function ProductsList({
           .map(([key, value]) => [key, value.toString()])
       ).toString();
 
-      const response = await fetch(`/api/v1/products${queryString ? `?${queryString}` : ''}`);
+      const response = await fetch(`http://localhost:8001/api/v1/products${queryString ? `?${queryString}` : ''}`);
 
       if (!response.ok) {
         throw new Error(`Failed to fetch products: ${response.status} ${response.statusText}`);
