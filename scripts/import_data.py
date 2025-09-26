@@ -295,7 +295,7 @@ def main():
 
     try:
         # Parse JSON data
-        json_objects = parse_json_objects('alls.json')
+        json_objects = parse_json_objects('../data/alls.json')
 
         if not json_objects:
             print("❌ No valid JSON objects found")

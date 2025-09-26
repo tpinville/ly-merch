@@ -1,20 +1,180 @@
-# Node / frontend
-node_modules/
-dist/
-.vite/
-*.log
+# =================================
+# LY-Merch .gitignore
+# =================================
+
+# Environment and Configuration
+.env
+.env.local
+.env.production
+.env.development
+*.env
 
 # Python
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+venv/
+ENV/
+env/
 .venv/
 
-# Docker
-.env
-*.env.local
+# PyCharm
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pytest
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+*.cover
+.hypothesis/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Package managers
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Build outputs
+build/
+dist/
+*.tgz
+*.tar.gz
+.vite/
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# ESLint cache
+.eslintcache
+
+# Optional REPL history
+.node_repl_history
+
+# Optional npm cache directory
+.npm
+
+# Yarn Integrity file
+.yarn-integrity
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+mysql-data/
+postgresql-data/
 volume_data/
 
-# IDE
-.vscode/
-.idea/
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary directories
+tmp/
+temp/
+.tmp/
+
+# OS generated files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# SQL dumps and backups
+*.sql
+*.dump
+backups/
+
+# IDE and editor files
+*.swp
+*.swo
+*~
+.project
+.settings/
+
+# Certificate files
+*.pem
+*.key
+*.crt
+*.csr
+
+# Application specific
+uploads/
+static/media/
+media/
+
+# Test outputs
+test-results/
+screenshots/
+videos/
+
+# Cache directories
+.cache/
+.parcel-cache/
+.next/
+.nuxt/
+
+# Custom application files
+import_data.sql
+*.csv.processed
+error_products.json
+upload_results.json

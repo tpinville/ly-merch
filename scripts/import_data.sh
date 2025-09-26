@@ -22,8 +22,8 @@ fi
 source .env
 
 # Check if alls.json exists
-if [ ! -f frontend/alls.json ]; then
-    echo -e "${RED}Error: frontend/alls.json file not found!${NC}"
+if [ ! -f ../data/alls.json ]; then
+    echo -e "${RED}Error: ../data/alls.json file not found!${NC}"
     exit 1
 fi
 
@@ -191,7 +191,7 @@ docker-compose exec -T db bash -c "
     export MYSQL_PASSWORD='${MYSQL_PASSWORD}'
     export MYSQL_DATABASE='${MYSQL_DATABASE}'
     python3 /tmp/import_data.py
-" < frontend/alls.json
+" < ../data/alls.json
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✅ Data import completed successfully!${NC}"

@@ -1,0 +1,160 @@
+# =================================
+# Pre-commit Configuration
+# =================================
+# Install with: pip install pre-commit && pre-commit install
+
+repos:
+  # Python Code Quality
+  - repo: https://github.com/psf/black
+    rev: 23.12.1
+    hooks:
+      - id: black
+        name: Black (Python formatter)
+        files: ^api/
+        language_version: python3
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        name: isort (Python import sorter)
+        files: ^api/
+        args: [--profile=black]
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8
+        name: Flake8 (Python linter)
+        files: ^api/
+        args: [--max-line-length=88, --extend-ignore=E203,W503]
+
+  - repo: https://github.com/pycqa/bandit
+    rev: 1.7.5
+    hooks:
+      - id: bandit
+        name: Bandit (Python security linter)
+        files: ^api/
+        args: [-r, ., -f, json, -o, bandit-report.json]
+        exclude: ^api/tests/
+
+  # JavaScript/TypeScript Code Quality
+  - repo: https://github.com/pre-commit/mirrors-eslint
+    rev: v8.56.0
+    hooks:
+      - id: eslint
+        name: ESLint (JavaScript/TypeScript linter)
+        files: ^frontend/src/.*\.(js|jsx|ts|tsx)$
+        additional_dependencies:
+          - '@typescript-eslint/eslint-plugin@6.19.0'
+          - '@typescript-eslint/parser@6.19.0'
+          - 'eslint-plugin-react@7.33.2'
+          - 'eslint-plugin-react-hooks@4.6.0'
+
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v4.0.0-alpha.8
+    hooks:
+      - id: prettier
+        name: Prettier (Code formatter)
+        files: ^frontend/.*\.(js|jsx|ts|tsx|css|json|md)$
+        exclude: ^frontend/(dist|build)/
+
+  # General File Quality
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        name: Trim trailing whitespace
+        exclude: ^.*\.(md|csv)$
+      - id: end-of-file-fixer
+        name: Fix end of files
+        exclude: ^.*\.(csv|json)$
+      - id: check-yaml
+        name: Check YAML syntax
+      - id: check-json
+        name: Check JSON syntax
+        exclude: ^.*tsconfig.*\.json$
+      - id: check-toml
+        name: Check TOML syntax
+      - id: check-xml
+        name: Check XML syntax
+      - id: check-merge-conflict
+        name: Check for merge conflicts
+      - id: check-case-conflict
+        name: Check for case conflicts
+      - id: check-added-large-files
+        name: Check for large files
+        args: ['--maxkb=1000']
+      - id: check-executables-have-shebangs
+        name: Check executables have shebangs
+      - id: mixed-line-ending
+        name: Check line endings
+        args: ['--fix=lf']
+
+  # Docker
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.12.0
+    hooks:
+      - id: hadolint-docker
+        name: Hadolint (Dockerfile linter)
+        files: Dockerfile.*
+
+  # Secrets Detection
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        name: Detect secrets
+        args: ['--baseline', '.secrets.baseline']
+        exclude: ^(.*/)?\.secrets\.baseline$
+
+  # SQL
+  - repo: https://github.com/sqlfluff/sqlfluff
+    rev: 3.0.2
+    hooks:
+      - id: sqlfluff-lint
+        name: SQLFluff (SQL linter)
+        files: \.sql$
+
+  # Commit Message Format
+  - repo: https://github.com/commitizen-tools/commitizen
+    rev: 3.13.0
+    hooks:
+      - id: commitizen
+        name: Commitizen (Conventional commits)
+        stages: [commit-msg]
+
+# Configure individual hooks
+default_language_version:
+  python: python3
+  node: "18"
+
+# Exclude patterns
+exclude: |
+  (?x)^(
+      .*\.min\.(js|css)$ |
+      node_modules/ |
+      \.git/ |
+      \.tox/ |
+      \.venv/ |
+      venv/ |
+      dist/ |
+      build/ |
+      \.pytest_cache/ |
+      __pycache__/
+  )$
+
+# Performance
+fail_fast: false
+default_stages: [commit]
+
+ci:
+  autofix_commit_msg: |
+    [pre-commit.ci] auto fixes from pre-commit.com hooks
+
+    for more information, see https://pre-commit.ci
+  autofix_prs: true
+  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+  autoupdate_schedule: weekly
+  skip: []
+  submodules: false

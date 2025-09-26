@@ -159,7 +159,7 @@ def main():
 
     try:
         # Parse JSON
-        json_objects = parse_json_file('alls.json')
+        json_objects = parse_json_file('../data/alls.json')
 
         # Generate SQL
         print("📝 Generating SQL statements...")

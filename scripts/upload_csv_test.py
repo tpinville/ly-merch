@@ -136,7 +136,7 @@ def upload_products(products, api_url='http://localhost:8000'):
         return False
 
 def main():
-    csv_file = 'sample_products.csv'
+    csv_file = '../data/sample_products.csv'
 
     print(f"📖 Reading {csv_file}...")
 

@@ -1,0 +1,21 @@
+{
+  "products": [
+    {
+      "product_id": "TEST_001",
+      "name": "Test CSV Upload Product",
+      "product_type": "sneakers",
+      "description": "A test product uploaded via API",
+      "brand": "TestBrand",
+      "price": 99.99,
+      "currency": "USD",
+      "color": "Red",
+      "size": "9",
+      "material": "Leather",
+      "gender": "unisex",
+      "season": "spring",
+      "availability_status": "in_stock",
+      "image_url": "https://example.com/test.jpg",
+      "trend_id": 1
+    }
+  ]
+}
