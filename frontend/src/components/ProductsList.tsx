@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { ProductSummary, ProductSearchParams } from '../types/api';
+import ProductCSVUpload from './ProductCSVUpload';
 
 interface ProductsListProps {
   selectedTrendId?: number;
@@ -16,6 +17,7 @@ export default function ProductsList({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showUpload, setShowUpload] = useState(false);
   const [filters, setFilters] = useState({
     product_type: '',
     brand: '',
@@ -87,6 +89,17 @@ export default function ProductsList({
     setSearchQuery('');
   };
 
+  const handleUploadComplete = (uploadedCount: number) => {
+    // Refresh the products list after successful upload
+    fetchProducts();
+    setShowUpload(false);
+    // You could show a success message here if needed
+  };
+
+  const handleUploadError = (errorMessage: string) => {
+    setError(`Upload failed: ${errorMessage}`);
+  };
+
   const formatPrice = (price?: number, currency: string = 'USD') => {
     if (price === undefined || price === null) return 'N/A';
     return new Intl.NumberFormat('en-US', {
@@ -143,16 +156,39 @@ export default function ProductsList({
       <div style={styles.header}>
         <h2 style={styles.title}>Products ({products.length})</h2>
 
-        <div style={styles.searchBar}>
-          <input
-            type="text"
-            placeholder="Search products..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            style={styles.searchInput}
-          />
+        <div style={styles.headerActions}>
+          <div style={styles.searchBar}>
+            <input
+              type="text"
+              placeholder="Search products..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={styles.searchInput}
+            />
+          </div>
+
+          <button
+            onClick={() => setShowUpload(!showUpload)}
+            style={{
+              ...styles.uploadButton,
+              ...(showUpload ? styles.uploadButtonActive : {})
+            }}
+          >
+            {showUpload ? 'Hide Upload' : 'Upload CSV'}
+          </button>
         </div>
       </div>
+
+      {showUpload && (
+        <div style={styles.uploadSection}>
+          <ProductCSVUpload
+            onUploadComplete={handleUploadComplete}
+            onError={handleUploadError}
+            selectedTrendId={selectedTrendId}
+            buttonLabel="Choose Products CSV"
+          />
+        </div>
+      )}
 
       <div style={styles.filters}>
         <div style={styles.filterRow}>
@@ -293,9 +329,16 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#1f2937',
     margin: 0,
   },
+  headerActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
   searchBar: {
     flex: 1,
-    maxWidth: '400px',
+    maxWidth: '300px',
   },
   searchInput: {
     width: '100%',
@@ -441,5 +484,29 @@ const styles: Record<string, React.CSSProperties> = {
     textAlign: 'center' as const,
     padding: '60px 20px',
     color: '#6b7280',
+  },
+  uploadButton: {
+    padding: '10px 16px',
+    backgroundColor: '#f3f4f6',
+    border: '1px solid #d1d5db',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: '500',
+    color: '#374151',
+    transition: 'all 0.2s',
+    whiteSpace: 'nowrap' as const,
+  },
+  uploadButtonActive: {
+    backgroundColor: '#3b82f6',
+    color: '#ffffff',
+    borderColor: '#3b82f6',
+  },
+  uploadSection: {
+    marginBottom: '24px',
+    padding: '20px',
+    backgroundColor: '#f8fafc',
+    border: '1px solid #e2e8f0',
+    borderRadius: '12px',
   },
 };

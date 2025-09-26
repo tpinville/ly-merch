@@ -13,7 +13,8 @@ from .models import (
     CategoryResponse, VerticalResponse, VerticalSummaryResponse,
     TrendResponse, TrendSummaryResponse,
     TrendImageResponse, ProductResponse, ProductSummaryResponse,
-    TrendSearchParams, VerticalSearchParams, ImageSearchParams, ProductSearchParams
+    TrendSearchParams, VerticalSearchParams, ImageSearchParams, ProductSearchParams,
+    ProductCreateRequest, ProductBulkUploadRequest, ProductBulkUploadResponse
 )
 
 # Create routers
@@ -588,6 +589,83 @@ def get_product_stats(db: Session = Depends(get_db)):
         "top_brands": {brand.brand: brand.count for brand in brands},
         "by_availability": {avail.availability_status: avail.count for avail in availability}
     }
+
+
+@products_router.post("/bulk", response_model=ProductBulkUploadResponse)
+def bulk_upload_products(
+    request: ProductBulkUploadRequest,
+    db: Session = Depends(get_db)
+):
+    """Bulk upload products from CSV data"""
+
+    uploaded_count = 0
+    skipped_count = 0
+    error_count = 0
+    errors = []
+
+    try:
+        for i, product_data in enumerate(request.products):
+            try:
+                # Generate product_id if not provided
+                if not product_data.product_id:
+                    # Create a simple product_id based on name and index
+                    base_id = product_data.name.lower().replace(' ', '_')[:20]
+                    product_data.product_id = f"{base_id}_{i+1:04d}"
+
+                # Check if product already exists
+                existing = db.query(Product).filter(
+                    Product.product_id == product_data.product_id
+                ).first()
+
+                if existing:
+                    skipped_count += 1
+                    continue
+
+                # Create new product
+                new_product = Product(
+                    product_id=product_data.product_id,
+                    trend_id=product_data.trend_id,
+                    name=product_data.name,
+                    product_type=product_data.product_type,
+                    description=product_data.description,
+                    brand=product_data.brand,
+                    price=product_data.price,
+                    currency=product_data.currency,
+                    color=product_data.color,
+                    size=product_data.size,
+                    material=product_data.material,
+                    gender=product_data.gender,
+                    season=product_data.season,
+                    availability_status=product_data.availability_status,
+                    image_url=product_data.image_url,
+                    product_url=product_data.product_url
+                )
+
+                db.add(new_product)
+                uploaded_count += 1
+
+            except Exception as e:
+                error_count += 1
+                error_msg = f"Row {i+1}: {str(e)}"
+                errors.append(error_msg)
+                continue
+
+        # Commit all changes
+        db.commit()
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Bulk upload failed: {str(e)}"
+        )
+
+    return ProductBulkUploadResponse(
+        uploaded_count=uploaded_count,
+        skipped_count=skipped_count,
+        error_count=error_count,
+        errors=errors if errors else None
+    )
 
 
 @images_router.get("/stats/summary")

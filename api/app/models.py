@@ -311,3 +311,36 @@ class ProductSearchParams(BaseModel):
     category_name: Optional[str] = None
     limit: Optional[int] = 50
     offset: Optional[int] = 0
+
+
+class ProductCreateRequest(BaseModel):
+    """Request schema for creating a single product"""
+    product_id: Optional[str] = None
+    trend_id: Optional[int] = None
+    name: str
+    product_type: str
+    description: Optional[str] = None
+    brand: Optional[str] = None
+    price: Optional[float] = None
+    currency: str = "USD"
+    color: Optional[str] = None
+    size: Optional[str] = None
+    material: Optional[str] = None
+    gender: str = "unisex"
+    season: Optional[str] = None
+    availability_status: str = "in_stock"
+    image_url: Optional[str] = None
+    product_url: Optional[str] = None
+
+
+class ProductBulkUploadRequest(BaseModel):
+    """Request schema for bulk product upload"""
+    products: List[ProductCreateRequest]
+
+
+class ProductBulkUploadResponse(BaseModel):
+    """Response schema for bulk product upload"""
+    uploaded_count: int
+    skipped_count: int
+    error_count: int
+    errors: Optional[List[str]] = None
