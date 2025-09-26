@@ -12,18 +12,37 @@ from pydantic import BaseModel
 Base = declarative_base()
 
 
+class Category(Base):
+    """Category model - main product categories like sneakers, sandals, etc."""
+    __tablename__ = "categories"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
+    description: Mapped[Optional[str]] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    verticals: Mapped[List["Vertical"]] = relationship("Vertical", back_populates="category")
+
+    def __repr__(self):
+        return f"<Category(id={self.id}, name='{self.name}')>"
+
+
 class Vertical(Base):
     """Vertical model - main categories like sneakers, sandals, etc."""
     __tablename__ = "verticals"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     vertical_id: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
+    category_id: Mapped[int] = mapped_column(Integer, ForeignKey("categories.id"), nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     geo_zone: Mapped[str] = mapped_column(String(10), nullable=False, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
+    category: Mapped["Category"] = relationship("Category", back_populates="verticals")
     trends: Mapped[List["Trend"]] = relationship("Trend", back_populates="vertical", cascade="all, delete-orphan")
 
     def __repr__(self):
@@ -78,6 +97,19 @@ class TrendImage(Base):
 
 # Pydantic schemas for API serialization
 
+class CategoryResponse(BaseModel):
+    """Response schema for categories"""
+    id: int
+    name: str
+    description: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    vertical_count: Optional[int] = 0
+
+    class Config:
+        from_attributes = True
+
+
 class TrendImageResponse(BaseModel):
     """Response schema for trend images"""
     id: int
@@ -125,6 +157,9 @@ class VerticalResponse(BaseModel):
     """Response schema for verticals"""
     id: int
     vertical_id: str
+    category_id: int
+    category_name: Optional[str] = None
+    category_description: Optional[str] = None
     name: str
     geo_zone: str
     created_at: datetime
@@ -140,6 +175,8 @@ class VerticalSummaryResponse(BaseModel):
     """Summary response schema for verticals (without trends)"""
     id: int
     vertical_id: str
+    category_id: int
+    category_name: Optional[str] = None
     name: str
     geo_zone: str
     trend_count: int
@@ -155,6 +192,8 @@ class TrendSearchParams(BaseModel):
     query: Optional[str] = None
     vertical_id: Optional[int] = None
     vertical_name: Optional[str] = None
+    category_id: Optional[int] = None
+    category_name: Optional[str] = None
     geo_zone: Optional[str] = None
     has_images: Optional[bool] = None
     image_type: Optional[str] = None  # positive, negative
@@ -165,6 +204,8 @@ class TrendSearchParams(BaseModel):
 class VerticalSearchParams(BaseModel):
     """Parameters for searching verticals"""
     query: Optional[str] = None
+    category_id: Optional[int] = None
+    category_name: Optional[str] = None
     geo_zone: Optional[str] = None
     limit: Optional[int] = 50
     offset: Optional[int] = 0

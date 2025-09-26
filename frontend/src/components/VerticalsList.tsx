@@ -1,19 +1,26 @@
 import React, { useState } from 'react';
-import { useVerticals } from '../services/api';
+import { useVerticals, useCategories } from '../services/api';
 import type { Vertical } from '../types/api';
 
 interface VerticalsListProps {
   onVerticalSelect?: (vertical: Vertical) => void;
   selectedVerticalId?: number;
+  selectedCategoryId?: number;
 }
 
-export default function VerticalsList({ onVerticalSelect, selectedVerticalId }: VerticalsListProps) {
+export default function VerticalsList({ onVerticalSelect, selectedVerticalId, selectedCategoryId: propCategoryId }: VerticalsListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGeoZone, setSelectedGeoZone] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>(propCategoryId);
+
+  const { data: categories } = useCategories({ limit: 100 });
+
+  const effectiveCategoryId = propCategoryId || selectedCategoryId;
 
   const { data: verticals, loading, error } = useVerticals({
     query: searchQuery || undefined,
     geo_zone: selectedGeoZone || undefined,
+    category_id: effectiveCategoryId,
     limit: 50
   });
 
@@ -35,15 +42,27 @@ export default function VerticalsList({ onVerticalSelect, selectedVerticalId }: 
   return (
     <div style={styles.container}>
       <div style={styles.header}>
-        <h3 style={styles.title}>Categories</h3>
+        <h3 style={styles.title}>Fashion Verticals</h3>
         <div style={styles.filters}>
           <input
             type="text"
-            placeholder="Search categories..."
+            placeholder="Search verticals..."
             value={searchQuery}
             onChange={(e) => handleSearch(e.target.value)}
             style={styles.searchInput}
           />
+          <select
+            value={effectiveCategoryId || ''}
+            onChange={(e) => setSelectedCategoryId(e.target.value ? parseInt(e.target.value) : undefined)}
+            style={styles.select}
+          >
+            <option value="">All Categories</option>
+            {categories?.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name.charAt(0).toUpperCase() + category.name.slice(1)}
+              </option>
+            ))}
+          </select>
           <select
             value={selectedGeoZone}
             onChange={(e) => setSelectedGeoZone(e.target.value)}
@@ -95,6 +114,9 @@ function VerticalCard({ vertical, isSelected, onClick }: VerticalCardProps) {
       onClick={onClick}
     >
       <div style={styles.verticalInfo}>
+        <div style={styles.categoryBadge}>
+          {vertical.category_name || 'Unknown Category'}
+        </div>
         <h4 style={styles.verticalName}>{vertical.name}</h4>
         <div style={styles.verticalMeta}>
           <span style={styles.verticalId}>
@@ -169,6 +191,17 @@ const styles: Record<string, React.CSSProperties> = {
   },
   verticalInfo: {
     flex: 1,
+  },
+  categoryBadge: {
+    display: 'inline-block',
+    backgroundColor: '#dbeafe',
+    color: '#1e40af',
+    fontSize: '11px',
+    fontWeight: '600',
+    padding: '2px 8px',
+    borderRadius: '12px',
+    marginBottom: '6px',
+    textTransform: 'capitalize' as const,
   },
   verticalName: {
     margin: '0 0 4px 0',

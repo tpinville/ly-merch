@@ -1,6 +1,7 @@
 // API Service for Fashion Trends Database
 
 import type {
+  Category,
   Vertical,
   Trend,
   TrendSummary,
@@ -73,6 +74,15 @@ export const fashionApi = {
 
   async getGeoZones(): Promise<string[]> {
     return fetchApi<string[]>('/verticals/search/geo-zones');
+  },
+
+  // Categories
+  async getCategories(params?: { query?: string; limit?: number; offset?: number }): Promise<Category[]> {
+    return fetchApi<Category[]>('/categories/', params);
+  },
+
+  async getCategory(id: number): Promise<Category> {
+    return fetchApi<Category>(`/categories/${id}`);
   },
 
   // Trends
@@ -166,4 +176,12 @@ export function useTrend(id: number, includeImages = false) {
 
 export function useVertical(id: number, includeTrends = false) {
   return useApi(() => fashionApi.getVertical(id, includeTrends), [id, includeTrends]);
+}
+
+export function useCategories(params?: { query?: string; limit?: number; offset?: number }) {
+  return useApi(() => fashionApi.getCategories(params), [JSON.stringify(params)]);
+}
+
+export function useCategory(id: number) {
+  return useApi(() => fashionApi.getCategory(id), [id]);
 }

@@ -1,8 +1,20 @@
 // API Types for Fashion Trends Database
 
+export interface Category {
+  id: number;
+  name: string;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+  vertical_count: number;
+}
+
 export interface Vertical {
   id: number;
   vertical_id: string;
+  category_id: number;
+  category_name?: string;
+  category_description?: string;
   name: string;
   geo_zone: string;
   trend_count: number;
@@ -60,6 +72,8 @@ export interface TrendSearchParams {
   query?: string;
   vertical_id?: number;
   vertical_name?: string;
+  category_id?: number;
+  category_name?: string;
   geo_zone?: string;
   has_images?: boolean;
   image_type?: string;
@@ -69,6 +83,8 @@ export interface TrendSearchParams {
 
 export interface VerticalSearchParams {
   query?: string;
+  category_id?: number;
+  category_name?: string;
   geo_zone?: string;
   limit?: number;
   offset?: number;

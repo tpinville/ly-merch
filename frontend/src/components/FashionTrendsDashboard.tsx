@@ -1,17 +1,24 @@
 import React, { useState } from 'react';
 import TrendsViewer from './TrendsViewer';
 import VerticalsList from './VerticalsList';
-import type { Vertical } from '../types/api';
+import CategoriesList from './CategoriesList';
+import type { Vertical, Category } from '../types/api';
 
-type ViewMode = 'dashboard' | 'trends' | 'verticals';
+type ViewMode = 'dashboard' | 'trends' | 'verticals' | 'categories';
 
 export default function FashionTrendsDashboard() {
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
   const [selectedVertical, setSelectedVertical] = useState<Vertical | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
 
   const handleVerticalSelect = (vertical: Vertical) => {
     setSelectedVertical(vertical);
     setViewMode('trends');
+  };
+
+  const handleCategorySelect = (category: Category) => {
+    setSelectedCategory(category);
+    setViewMode('verticals');
   };
 
   return (
@@ -46,6 +53,15 @@ export default function FashionTrendsDashboard() {
             style={{
               ...styles.navButton,
               ...(viewMode === 'verticals' ? styles.navButtonActive : {}),
+            }}
+          >
+            Verticals
+          </button>
+          <button
+            onClick={() => setViewMode('categories')}
+            style={{
+              ...styles.navButton,
+              ...(viewMode === 'categories' ? styles.navButtonActive : {}),
             }}
           >
             Categories
@@ -90,7 +106,29 @@ export default function FashionTrendsDashboard() {
 
         {viewMode === 'verticals' && (
           <div style={styles.fullContent}>
-            <VerticalsList onVerticalSelect={handleVerticalSelect} />
+            {selectedCategory && (
+              <div style={styles.breadcrumb}>
+                <button
+                  onClick={() => setViewMode('categories')}
+                  style={styles.breadcrumbButton}
+                >
+                  ← Back to Categories
+                </button>
+                <span style={styles.breadcrumbText}>
+                  Viewing verticals in: <strong>{selectedCategory.name.charAt(0).toUpperCase() + selectedCategory.name.slice(1)}</strong>
+                </span>
+              </div>
+            )}
+            <VerticalsList
+              onVerticalSelect={handleVerticalSelect}
+              selectedCategoryId={selectedCategory?.id}
+            />
+          </div>
+        )}
+
+        {viewMode === 'categories' && (
+          <div style={styles.fullContent}>
+            <CategoriesList onCategorySelect={handleCategorySelect} />
           </div>
         )}
       </main>

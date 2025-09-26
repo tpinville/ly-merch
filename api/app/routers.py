@@ -9,17 +9,79 @@ from sqlalchemy import func, and_, or_, text, case
 
 from .database import get_db
 from .models import (
-    Vertical, Trend, TrendImage,
-    VerticalResponse, VerticalSummaryResponse,
+    Category, Vertical, Trend, TrendImage,
+    CategoryResponse, VerticalResponse, VerticalSummaryResponse,
     TrendResponse, TrendSummaryResponse,
     TrendImageResponse,
     TrendSearchParams, VerticalSearchParams, ImageSearchParams
 )
 
 # Create routers
+categories_router = APIRouter(prefix="/categories", tags=["categories"])
 verticals_router = APIRouter(prefix="/verticals", tags=["verticals"])
 trends_router = APIRouter(prefix="/trends", tags=["trends"])
 images_router = APIRouter(prefix="/images", tags=["images"])
+
+
+# CATEGORIES ENDPOINTS
+
+@categories_router.get("/", response_model=List[CategoryResponse])
+def get_categories(
+    query: Optional[str] = Query(None, description="Search by name"),
+    limit: int = Query(50, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db)
+):
+    """Get list of all categories with vertical counts"""
+
+    # Build base query with vertical count
+    query_stmt = db.query(
+        Category,
+        func.count(Vertical.id).label('vertical_count')
+    ).outerjoin(Vertical).group_by(Category.id)
+
+    # Apply filters
+    if query:
+        query_stmt = query_stmt.filter(Category.name.contains(query))
+
+    # Apply pagination and ordering
+    query_stmt = query_stmt.order_by(Category.name).offset(offset).limit(limit)
+
+    results = query_stmt.all()
+
+    return [
+        CategoryResponse(
+            id=category.id,
+            name=category.name,
+            description=category.description,
+            created_at=category.created_at,
+            updated_at=category.updated_at,
+            vertical_count=vertical_count
+        )
+        for category, vertical_count in results
+    ]
+
+
+@categories_router.get("/{category_id}", response_model=CategoryResponse)
+def get_category(category_id: int, db: Session = Depends(get_db)):
+    """Get a specific category by ID"""
+
+    category = db.query(Category).filter(Category.id == category_id).first()
+
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found")
+
+    # Get vertical count
+    vertical_count = db.query(func.count(Vertical.id)).filter(Vertical.category_id == category.id).scalar() or 0
+
+    return CategoryResponse(
+        id=category.id,
+        name=category.name,
+        description=category.description,
+        created_at=category.created_at,
+        updated_at=category.updated_at,
+        vertical_count=vertical_count
+    )
 
 
 # VERTICALS ENDPOINTS
@@ -27,22 +89,31 @@ images_router = APIRouter(prefix="/images", tags=["images"])
 @verticals_router.get("/", response_model=List[VerticalSummaryResponse])
 def get_verticals(
     geo_zone: Optional[str] = Query(None, description="Filter by geo zone"),
+    category_id: Optional[int] = Query(None, description="Filter by category ID"),
+    category_name: Optional[str] = Query(None, description="Filter by category name"),
     query: Optional[str] = Query(None, description="Search by name"),
     limit: int = Query(50, ge=1, le=1000),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db)
 ):
-    """Get list of all verticals with trend counts"""
+    """Get list of all verticals with trend counts and category information"""
 
-    # Build base query with trend count
+    # Build base query with trend count and category information
     query_stmt = db.query(
         Vertical,
+        Category.name.label('category_name'),
         func.count(Trend.id).label('trend_count')
-    ).outerjoin(Trend).group_by(Vertical.id)
+    ).join(Category).outerjoin(Trend).group_by(Vertical.id)
 
     # Apply filters
     if geo_zone:
         query_stmt = query_stmt.filter(Vertical.geo_zone == geo_zone)
+
+    if category_id:
+        query_stmt = query_stmt.filter(Vertical.category_id == category_id)
+
+    if category_name:
+        query_stmt = query_stmt.filter(Category.name.contains(category_name))
 
     if query:
         query_stmt = query_stmt.filter(Vertical.name.contains(query))
@@ -56,19 +127,21 @@ def get_verticals(
         VerticalSummaryResponse(
             id=vertical.id,
             vertical_id=vertical.vertical_id,
+            category_id=vertical.category_id,
+            category_name=category_name,
             name=vertical.name,
             geo_zone=vertical.geo_zone,
             trend_count=trend_count
         )
-        for vertical, trend_count in results
+        for vertical, category_name, trend_count in results
     ]
 
 
 @verticals_router.get("/{vertical_id}", response_model=VerticalResponse)
 def get_vertical(vertical_id: int, include_trends: bool = Query(False), db: Session = Depends(get_db)):
-    """Get a specific vertical by ID"""
+    """Get a specific vertical by ID with category information"""
 
-    query_stmt = db.query(Vertical)
+    query_stmt = db.query(Vertical).options(joinedload(Vertical.category))
     if include_trends:
         query_stmt = query_stmt.options(joinedload(Vertical.trends))
 
@@ -106,6 +179,9 @@ def get_vertical(vertical_id: int, include_trends: bool = Query(False), db: Sess
         return VerticalResponse(
             id=vertical.id,
             vertical_id=vertical.vertical_id,
+            category_id=vertical.category_id,
+            category_name=vertical.category.name if vertical.category else None,
+            category_description=vertical.category.description if vertical.category else None,
             name=vertical.name,
             geo_zone=vertical.geo_zone,
             created_at=vertical.created_at,
@@ -119,6 +195,9 @@ def get_vertical(vertical_id: int, include_trends: bool = Query(False), db: Sess
         return VerticalResponse(
             id=vertical.id,
             vertical_id=vertical.vertical_id,
+            category_id=vertical.category_id,
+            category_name=vertical.category.name if vertical.category else None,
+            category_description=vertical.category.description if vertical.category else None,
             name=vertical.name,
             geo_zone=vertical.geo_zone,
             created_at=vertical.created_at,
@@ -140,6 +219,8 @@ def get_geo_zones(db: Session = Depends(get_db)):
 def get_trends(
     vertical_id: Optional[int] = Query(None, description="Filter by vertical ID"),
     vertical_name: Optional[str] = Query(None, description="Filter by vertical name"),
+    category_id: Optional[int] = Query(None, description="Filter by category ID"),
+    category_name: Optional[str] = Query(None, description="Filter by category name"),
     geo_zone: Optional[str] = Query(None, description="Filter by geo zone"),
     query: Optional[str] = Query(None, description="Search in trend name or description"),
     has_images: Optional[bool] = Query(None, description="Filter trends that have/don't have images"),
@@ -148,9 +229,9 @@ def get_trends(
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db)
 ):
-    """Search and filter trends"""
+    """Search and filter trends with category support"""
 
-    # Build base query with image counts
+    # Build base query with image counts, including category joins
     query_stmt = db.query(
         Trend,
         func.count(TrendImage.id).label('image_count'),
@@ -160,7 +241,7 @@ def get_trends(
         func.sum(
             case((TrendImage.image_type == 'negative', 1), else_=0)
         ).label('negative_count')
-    ).outerjoin(TrendImage).outerjoin(Vertical).group_by(Trend.id)
+    ).outerjoin(TrendImage).outerjoin(Vertical).outerjoin(Category).group_by(Trend.id)
 
     # Apply filters
     if vertical_id:
@@ -168,6 +249,12 @@ def get_trends(
 
     if vertical_name:
         query_stmt = query_stmt.filter(Vertical.name.contains(vertical_name))
+
+    if category_id:
+        query_stmt = query_stmt.filter(Vertical.category_id == category_id)
+
+    if category_name:
+        query_stmt = query_stmt.filter(Category.name.contains(category_name))
 
     if geo_zone:
         query_stmt = query_stmt.filter(Vertical.geo_zone == geo_zone)
