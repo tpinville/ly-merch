@@ -600,7 +600,7 @@ def get_product_stats(db: Session = Depends(get_db)):
 
 
 @products_router.post("/bulk", response_model=ProductBulkUploadResponse)
-def bulk_upload_products(
+async def bulk_upload_products(
     request: ProductBulkUploadRequest,
     db: Session = Depends(get_db)
 ):
@@ -610,6 +610,8 @@ def bulk_upload_products(
     skipped_count = 0
     error_count = 0
     errors = []
+    analysis_count = 0
+    analysis_results = []
 
     try:
         for i, product_data in enumerate(request.products):
@@ -628,6 +630,35 @@ def bulk_upload_products(
                 if existing:
                     skipped_count += 1
                     continue
+
+                # Perform image analysis if requested and image_url is provided
+                analysis_result = None
+                if product_data.analyze_image and product_data.image_url:
+                    try:
+                        analysis_result = await analyze_product_image(
+                            product_data.image_url,
+                            product_data.product_type
+                        )
+
+                        if analysis_result:
+                            analysis_count += 1
+                            analysis_results.append({
+                                "product_id": product_data.product_id,
+                                "image_url": product_data.image_url,
+                                "analysis": analysis_result
+                            })
+
+                            # Auto-enhance product description with Claude analysis
+                            if not product_data.description:
+                                product_data.description = analysis_result.get('description', '')
+
+                            # Auto-suggest material if not provided
+                            if not product_data.material and analysis_result.get('materials'):
+                                product_data.material = ', '.join(analysis_result['materials'][:2])
+
+                    except Exception as analysis_error:
+                        # Log analysis error but continue with product creation
+                        errors.append(f"Row {i+1}: Image analysis failed - {str(analysis_error)}")
 
                 # Create new product
                 new_product = Product(
@@ -672,7 +703,9 @@ def bulk_upload_products(
         uploaded_count=uploaded_count,
         skipped_count=skipped_count,
         error_count=error_count,
-        errors=errors if errors else None
+        errors=errors if errors else None,
+        analysis_count=analysis_count,
+        analysis_results=analysis_results if analysis_results else None
     )
 
 
@@ -694,6 +727,140 @@ def get_image_stats(db: Session = Depends(get_db)):
 
 
 # ANALYSIS ENDPOINTS
+
+async def analyze_product_image(image_url: str, product_type: str = "fashion") -> dict:
+    """
+    Helper function to analyze a product image using Claude API
+    Returns Claude analysis results or None if analysis fails
+    """
+    if not image_url:
+        return None
+
+    try:
+        # Initialize Claude client or demo mode
+        anthropic_api_key = os.environ.get('ANTHROPIC_API_KEY')
+        demo_mode = os.environ.get('CLAUDE_DEMO_MODE', 'false').lower() == 'true'
+
+        if demo_mode:
+            print(f"🎭 Demo analysis for image: {image_url}")
+            # Simulate Claude analysis based on product type
+            product_type_lower = product_type.lower()
+            if 'sneaker' in product_type_lower or 'shoe' in product_type_lower:
+                return {
+                    "category": "sneakers",
+                    "attributes": ["low-top", "lace-up", "canvas", "rubber sole", "casual"],
+                    "materials": ["canvas", "rubber"],
+                    "style_tags": ["athletic", "casual", "streetwear", "comfortable"],
+                    "description": "Casual low-top sneakers with canvas upper and rubber sole",
+                    "confidence": "medium",
+                    "demo_mode": True
+                }
+            elif 'boot' in product_type_lower:
+                return {
+                    "category": "boots",
+                    "attributes": ["ankle-height", "leather", "lace-up", "combat-style"],
+                    "materials": ["leather", "rubber"],
+                    "style_tags": ["rugged", "durable", "outdoor", "military-inspired"],
+                    "description": "Sturdy ankle-height boots with leather construction",
+                    "confidence": "medium",
+                    "demo_mode": True
+                }
+            elif 'dress' in product_type_lower:
+                return {
+                    "category": "dress",
+                    "attributes": ["knee-length", "fitted", "sleeveless", "A-line"],
+                    "materials": ["cotton", "polyester"],
+                    "style_tags": ["elegant", "formal", "versatile", "classic"],
+                    "description": "Elegant knee-length dress with fitted bodice",
+                    "confidence": "medium",
+                    "demo_mode": True
+                }
+            else:
+                return {
+                    "category": product_type,
+                    "attributes": ["stylish", "modern", "versatile"],
+                    "materials": ["textile"],
+                    "style_tags": ["contemporary", "trendy"],
+                    "description": f"Modern {product_type} with contemporary styling",
+                    "confidence": "low",
+                    "demo_mode": True
+                }
+        elif not anthropic_api_key or anthropic_api_key == 'your_api_key_here':
+            print(f"⚠️ Claude API key not configured, skipping analysis for {image_url}")
+            return None
+        else:
+            # Real Claude API analysis
+            client = anthropic.Anthropic(api_key=anthropic_api_key)
+
+            # Download image
+            response = requests.get(image_url, timeout=30, headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            })
+            response.raise_for_status()
+
+            # Check content type
+            content_type = response.headers.get('content-type', '').lower()
+            if not content_type.startswith('image/'):
+                print(f"⚠️ URL does not point to an image: {image_url}")
+                return None
+
+            # Encode for Claude
+            image_data = base64.b64encode(response.content).decode('utf-8')
+
+            # Analyze with Claude
+            message = client.messages.create(
+                model="claude-3-5-sonnet-20241022",
+                max_tokens=1000,
+                messages=[{
+                    "role": "user",
+                    "content": [{
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": content_type,
+                            "data": image_data
+                        }
+                    }, {
+                        "type": "text",
+                        "text": f"""Analyze this fashion product image. Focus on:
+1. Product category (sneakers, boots, dress, pants, shirt, etc.)
+2. Style characteristics (high-top, low-top, chunky, slim, etc.)
+3. Design elements (lace-up, slip-on, platform, heel type, etc.)
+4. Material appearance (leather, canvas, knit, etc.)
+5. Color and patterns
+
+Product type context: "{product_type}"
+
+Provide JSON response with:
+- "category": main product category
+- "attributes": list of key style attributes
+- "materials": apparent materials
+- "style_tags": relevant style keywords
+- "description": brief description
+- "confidence": confidence level (high/medium/low)"""
+                    }]
+                }]
+            )
+
+            # Parse Claude response
+            claude_response = message.content[0].text
+            try:
+                import json
+                if claude_response.strip().startswith('{'):
+                    return json.loads(claude_response)
+                else:
+                    json_start = claude_response.find('{')
+                    json_end = claude_response.rfind('}') + 1
+                    if json_start != -1 and json_end > json_start:
+                        return json.loads(claude_response[json_start:json_end])
+            except json.JSONDecodeError:
+                pass
+
+            return {"raw_response": claude_response}
+
+    except Exception as e:
+        print(f"⚠️ Image analysis failed for {image_url}: {str(e)}")
+        return None
 
 @analysis_router.post("/analyseProduct", response_model=AnalyseProductResponse)
 def analyse_product(

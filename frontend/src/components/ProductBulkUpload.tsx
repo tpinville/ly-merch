@@ -18,6 +18,7 @@ interface ProductUploadRow {
   image_url?: string;
   product_url?: string;
   trend_id?: number;
+  analyze_image?: boolean;
 }
 
 interface UploadResult {
@@ -25,6 +26,12 @@ interface UploadResult {
   skipped_count: number;
   error_count: number;
   errors?: string[];
+  analysis_count?: number;
+  analysis_results?: Array<{
+    product_id: string;
+    image_url: string;
+    analysis: any;
+  }>;
 }
 
 interface ProcessingStats {

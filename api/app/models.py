@@ -331,6 +331,7 @@ class ProductCreateRequest(BaseModel):
     availability_status: str = "in_stock"
     image_url: Optional[str] = None
     product_url: Optional[str] = None
+    analyze_image: Optional[bool] = False  # Enable Claude image analysis
 
 
 class ProductBulkUploadRequest(BaseModel):
@@ -344,6 +345,8 @@ class ProductBulkUploadResponse(BaseModel):
     skipped_count: int
     error_count: int
     errors: Optional[List[str]] = None
+    analysis_count: Optional[int] = 0
+    analysis_results: Optional[List[dict]] = None
 
 
 class AnalyseProductRequest(BaseModel):

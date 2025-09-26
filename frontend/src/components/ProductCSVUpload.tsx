@@ -19,6 +19,7 @@ export interface ProductRow {
   image_url?: string;
   product_url?: string;
   trend_id?: number;
+  analyze_image?: boolean;
 }
 
 interface ProductCSVUploadProps {
@@ -79,7 +80,8 @@ function normalizeProductRow(r: Record<string, any>, defaultTrendId?: number): P
     availability_status: normalizeAvailabilityStatus(r.availability_status ?? r.availability ?? r.status ?? r.stock),
     image_url: r.image_url ?? r.imageUrl ?? r.image ?? r.photo ?? r.picture ?? '',
     product_url: r.product_url ?? r.productUrl ?? r.url ?? r.link ?? '',
-    trend_id: parseInt(r.trend_id ?? r.trendId ?? defaultTrendId ?? '') || defaultTrendId
+    trend_id: parseInt(r.trend_id ?? r.trendId ?? defaultTrendId ?? '') || defaultTrendId,
+    analyze_image: Boolean(r.analyze_image ?? r.analyzeImage ?? r.analyze_img ?? false)
   };
 }
 
@@ -202,8 +204,14 @@ export default function ProductCSVUpload({
 
       const result = await response.json();
       const uploadedCount = result.uploaded_count || parsedRows.length;
+      const analysisCount = result.analysis_count || 0;
 
-      setUploadStatus(`Successfully uploaded ${uploadedCount} products`);
+      let statusMessage = `Successfully uploaded ${uploadedCount} products`;
+      if (analysisCount > 0) {
+        statusMessage += ` (${analysisCount} images analyzed with Claude AI)`;
+      }
+
+      setUploadStatus(statusMessage);
       onUploadComplete?.(uploadedCount);
 
       // Clear the form
@@ -369,6 +377,7 @@ export default function ProductCSVUpload({
               <li>gender (male/female/unisex)</li>
               <li>availability_status (in_stock/out_of_stock/discontinued/pre_order)</li>
               <li>image_url, product_url</li>
+              <li>analyze_image (true/false) - Enable Claude AI image analysis</li>
             </ul>
           </div>
         </div>
