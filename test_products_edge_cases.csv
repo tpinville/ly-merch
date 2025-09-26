@@ -1,0 +1,9 @@
+Product Name,Type,Brand Name,Price,Currency,Color,Size,Material,Target Gender,Season,Stock Status,Description,Image,Website
+"Test Sneakers with Quotes",sneakers,"Brand Name with Spaces",99.99,$,Red,10.5,"Leather, Mesh",M,Spring,Available,"Product with various formatting issues",https://example.com/image1.jpg,
+Running Shoes,sneakers,,75.50,USD,,9,,Male,summer,IN STOCK,"Missing some fields test",,
+"Invalid Price Product",sneakers,TestBrand,not-a-price,USD,Blue,8,Leather,female,fall,in_stock,"This should cause a validation error",,
+Product with Minimal Info,boots,,,,,,,,,,,,
+High Heels,heels,Designer Brand,299.99,EUR,Black,7,Patent,F,All Season,Pre Order,"Testing gender and status variations",,
+"Comma, in Name",flats,"Brand, with Commas",45.00,USD,"Blue, Green",6.5,Canvas,Unisex,Winter,Discontinued,"Testing comma handling in CSV",,
+UTF-8 Test Café Shoes,sneakers,Français Brand,89.50,EUR,Café au Lait,38,Cuir,unisex,été,en_stock,"Testing special characters éàü",,
+Product with Quotes,sandals,"""Quoted Brand""",55.00,USD,"""Quoted Color""",8,"""Quoted Material""",male,"""Quoted Season""",out_of_stock,"Testing quote handling",,
