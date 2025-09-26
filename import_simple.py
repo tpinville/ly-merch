@@ -82,6 +82,7 @@ def generate_sql(json_objects):
     category_counter = 7  # Start after predefined categories
 
     def get_category_id(category_name):
+        nonlocal category_counter
         if category_name not in category_id_map:
             # Check if it's a predefined category
             predefined = {
@@ -95,7 +96,6 @@ def generate_sql(json_objects):
                 statements.append(
                     f"INSERT INTO categories (id, name) VALUES ({category_counter}, '{category_name}');"
                 )
-                nonlocal category_counter
                 category_counter += 1
         return category_id_map[category_name]
 
