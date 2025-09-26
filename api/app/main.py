@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from .database import get_db, get_db_health
-from .routers import categories_router, verticals_router, trends_router, images_router
+from .routers import categories_router, verticals_router, trends_router, images_router, products_router
 
 API_LOG_LEVEL = os.getenv("API_LOG_LEVEL", "info")
 CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
@@ -42,6 +42,7 @@ app.include_router(categories_router, prefix="/api/v1")
 app.include_router(verticals_router, prefix="/api/v1")
 app.include_router(trends_router, prefix="/api/v1")
 app.include_router(images_router, prefix="/api/v1")
+app.include_router(products_router, prefix="/api/v1")
 
 
 @app.get("/")
@@ -56,6 +57,7 @@ def root():
             "verticals": "/api/v1/verticals",
             "trends": "/api/v1/trends",
             "images": "/api/v1/images",
+            "products": "/api/v1/products",
             "health": "/health"
         }
     }
@@ -65,12 +67,13 @@ def root():
 def get_api_stats(db: Session = Depends(get_db)):
     """Get overall API statistics including categories"""
     from sqlalchemy import func
-    from .models import Category, Vertical, Trend, TrendImage
+    from .models import Category, Vertical, Trend, TrendImage, Product
 
     category_count = db.query(func.count(Category.id)).scalar()
     vertical_count = db.query(func.count(Vertical.id)).scalar()
     trend_count = db.query(func.count(Trend.id)).scalar()
     image_count = db.query(func.count(TrendImage.id)).scalar()
+    product_count = db.query(func.count(Product.id)).scalar()
 
     # Get category distribution
     categories = db.query(
@@ -95,6 +98,7 @@ def get_api_stats(db: Session = Depends(get_db)):
         "total_verticals": vertical_count,
         "total_trends": trend_count,
         "total_images": image_count,
+        "total_products": product_count,
         "categories": {cat.name: cat.count for cat in categories},
         "geo_zones": {zone.geo_zone: zone.count for zone in geo_zones},
         "image_types": {img_type.image_type: img_type.count for img_type in image_types}

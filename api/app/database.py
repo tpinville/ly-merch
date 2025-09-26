@@ -68,7 +68,7 @@ def get_db_health() -> dict:
 
             # Get table counts
             table_counts = {}
-            for table_name in ["verticals", "trends", "trend_images"]:
+            for table_name in ["categories", "verticals", "trends", "trend_images", "products"]:
                 try:
                     count_result = conn.execute(text(f"SELECT COUNT(*) as count FROM {table_name}")).fetchone()
                     table_counts[table_name] = count_result[0]

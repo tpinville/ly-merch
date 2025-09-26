@@ -2,14 +2,16 @@ import React, { useState } from 'react';
 import TrendsViewer from './TrendsViewer';
 import VerticalsList from './VerticalsList';
 import CategoriesList from './CategoriesList';
-import type { Vertical, Category } from '../types/api';
+import ProductsList from './ProductsList';
+import type { Vertical, Category, ProductSummary } from '../types/api';
 
-type ViewMode = 'dashboard' | 'trends' | 'verticals' | 'categories';
+type ViewMode = 'dashboard' | 'trends' | 'verticals' | 'categories' | 'products';
 
 export default function FashionTrendsDashboard() {
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
   const [selectedVertical, setSelectedVertical] = useState<Vertical | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<ProductSummary | null>(null);
 
   const handleVerticalSelect = (vertical: Vertical) => {
     setSelectedVertical(vertical);
@@ -19,6 +21,11 @@ export default function FashionTrendsDashboard() {
   const handleCategorySelect = (category: Category) => {
     setSelectedCategory(category);
     setViewMode('verticals');
+  };
+
+  const handleProductSelect = (product: ProductSummary) => {
+    setSelectedProduct(product);
+    // Could navigate to product detail view in future
   };
 
   return (
@@ -65,6 +72,15 @@ export default function FashionTrendsDashboard() {
             }}
           >
             Categories
+          </button>
+          <button
+            onClick={() => setViewMode('products')}
+            style={{
+              ...styles.navButton,
+              ...(viewMode === 'products' ? styles.navButtonActive : {}),
+            }}
+          >
+            Products
           </button>
         </div>
       </nav>
@@ -129,6 +145,15 @@ export default function FashionTrendsDashboard() {
         {viewMode === 'categories' && (
           <div style={styles.fullContent}>
             <CategoriesList onCategorySelect={handleCategorySelect} />
+          </div>
+        )}
+
+        {viewMode === 'products' && (
+          <div style={styles.fullContent}>
+            <ProductsList
+              onProductSelect={handleProductSelect}
+              selectedCategoryId={selectedCategory?.id}
+            />
           </div>
         )}
       </main>

@@ -9,11 +9,11 @@ from sqlalchemy import func, and_, or_, text, case
 
 from .database import get_db
 from .models import (
-    Category, Vertical, Trend, TrendImage,
+    Category, Vertical, Trend, TrendImage, Product,
     CategoryResponse, VerticalResponse, VerticalSummaryResponse,
     TrendResponse, TrendSummaryResponse,
-    TrendImageResponse,
-    TrendSearchParams, VerticalSearchParams, ImageSearchParams
+    TrendImageResponse, ProductResponse, ProductSummaryResponse,
+    TrendSearchParams, VerticalSearchParams, ImageSearchParams, ProductSearchParams
 )
 
 # Create routers
@@ -21,6 +21,7 @@ categories_router = APIRouter(prefix="/categories", tags=["categories"])
 verticals_router = APIRouter(prefix="/verticals", tags=["verticals"])
 trends_router = APIRouter(prefix="/trends", tags=["trends"])
 images_router = APIRouter(prefix="/images", tags=["images"])
+products_router = APIRouter(prefix="/products", tags=["products"])
 
 
 # CATEGORIES ENDPOINTS
@@ -441,6 +442,152 @@ def get_image(image_id: int, db: Session = Depends(get_db)):
         created_at=image.created_at,
         updated_at=image.updated_at
     )
+
+
+# PRODUCTS ENDPOINTS
+
+@products_router.get("/", response_model=List[ProductSummaryResponse])
+def get_products(
+    query: Optional[str] = Query(None, description="Search in product name or description"),
+    trend_id: Optional[int] = Query(None, description="Filter by trend ID"),
+    product_type: Optional[str] = Query(None, description="Filter by product type (e.g., t-shirt, sneakers)"),
+    brand: Optional[str] = Query(None, description="Filter by brand"),
+    gender: Optional[str] = Query(None, description="Filter by gender"),
+    availability_status: Optional[str] = Query(None, description="Filter by availability status"),
+    min_price: Optional[float] = Query(None, description="Minimum price filter"),
+    max_price: Optional[float] = Query(None, description="Maximum price filter"),
+    category_id: Optional[int] = Query(None, description="Filter by category ID"),
+    category_name: Optional[str] = Query(None, description="Filter by category name"),
+    limit: int = Query(50, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db)
+):
+    """Search and filter products"""
+
+    # Build base query
+    query_stmt = db.query(Product).outerjoin(Trend).outerjoin(Vertical).outerjoin(Category)
+
+    # Apply filters
+    if trend_id:
+        query_stmt = query_stmt.filter(Product.trend_id == trend_id)
+
+    if product_type:
+        query_stmt = query_stmt.filter(Product.product_type.contains(product_type))
+
+    if brand:
+        query_stmt = query_stmt.filter(Product.brand.contains(brand))
+
+    if gender:
+        query_stmt = query_stmt.filter(Product.gender == gender)
+
+    if availability_status:
+        query_stmt = query_stmt.filter(Product.availability_status == availability_status)
+
+    if min_price is not None:
+        query_stmt = query_stmt.filter(Product.price >= min_price)
+
+    if max_price is not None:
+        query_stmt = query_stmt.filter(Product.price <= max_price)
+
+    if category_id:
+        query_stmt = query_stmt.filter(Vertical.category_id == category_id)
+
+    if category_name:
+        query_stmt = query_stmt.filter(Category.name.contains(category_name))
+
+    if query:
+        query_stmt = query_stmt.filter(
+            or_(
+                Product.name.contains(query),
+                Product.description.contains(query)
+            )
+        )
+
+    # Apply pagination and ordering
+    query_stmt = query_stmt.order_by(Product.name).offset(offset).limit(limit)
+
+    products = query_stmt.all()
+
+    return [
+        ProductSummaryResponse(
+            id=product.id,
+            product_id=product.product_id,
+            name=product.name,
+            product_type=product.product_type,
+            brand=product.brand,
+            price=float(product.price) if product.price else None,
+            currency=product.currency,
+            availability_status=product.availability_status,
+            image_url=product.image_url
+        )
+        for product in products
+    ]
+
+
+@products_router.get("/{product_id}", response_model=ProductResponse)
+def get_product(product_id: int, db: Session = Depends(get_db)):
+    """Get a specific product by ID"""
+
+    product = db.query(Product).filter(Product.id == product_id).first()
+
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    return ProductResponse(
+        id=product.id,
+        product_id=product.product_id,
+        trend_id=product.trend_id,
+        name=product.name,
+        product_type=product.product_type,
+        description=product.description,
+        brand=product.brand,
+        price=float(product.price) if product.price else None,
+        currency=product.currency,
+        color=product.color,
+        size=product.size,
+        material=product.material,
+        gender=product.gender,
+        season=product.season,
+        availability_status=product.availability_status,
+        image_url=product.image_url,
+        product_url=product.product_url,
+        created_at=product.created_at,
+        updated_at=product.updated_at
+    )
+
+
+@products_router.get("/stats/summary")
+def get_product_stats(db: Session = Depends(get_db)):
+    """Get product statistics"""
+
+    total_count = db.query(func.count(Product.id)).scalar()
+
+    # Get product type distribution
+    product_types = db.query(
+        Product.product_type,
+        func.count(Product.id).label('count')
+    ).group_by(Product.product_type).all()
+
+    # Get brand distribution (top 10)
+    brands = db.query(
+        Product.brand,
+        func.count(Product.id).label('count')
+    ).filter(Product.brand.isnot(None)).group_by(Product.brand).order_by(
+        func.count(Product.id).desc()
+    ).limit(10).all()
+
+    # Get availability distribution
+    availability = db.query(
+        Product.availability_status,
+        func.count(Product.id).label('count')
+    ).group_by(Product.availability_status).all()
+
+    return {
+        "total_products": total_count,
+        "by_type": {ptype.product_type: ptype.count for ptype in product_types},
+        "top_brands": {brand.brand: brand.count for brand in brands},
+        "by_availability": {avail.availability_status: avail.count for avail in availability}
+    }
 
 
 @images_router.get("/stats/summary")

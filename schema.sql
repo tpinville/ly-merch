@@ -67,6 +67,36 @@ CREATE TABLE trend_images (
     UNIQUE KEY unique_trend_image (trend_id, md5_hash, image_type)
 );
 
+-- Products table (actual fashion products based on trends)
+CREATE TABLE products (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    product_id VARCHAR(100) UNIQUE NOT NULL,
+    trend_id INT NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    product_type VARCHAR(100) NOT NULL, -- e.g., 't-shirt', 'dress', 'sneakers', 'jeans'
+    description TEXT,
+    brand VARCHAR(150),
+    price DECIMAL(10, 2),
+    currency VARCHAR(3) DEFAULT 'USD',
+    color VARCHAR(100),
+    size VARCHAR(50),
+    material VARCHAR(200),
+    gender ENUM('male', 'female', 'unisex') DEFAULT 'unisex',
+    season VARCHAR(50), -- e.g., 'spring', 'summer', 'fall', 'winter', 'all-season'
+    availability_status ENUM('in_stock', 'out_of_stock', 'discontinued', 'pre_order') DEFAULT 'in_stock',
+    image_url VARCHAR(500),
+    product_url VARCHAR(500),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (trend_id) REFERENCES trends(id) ON DELETE CASCADE,
+    INDEX idx_trend_id (trend_id),
+    INDEX idx_product_type (product_type),
+    INDEX idx_brand (brand),
+    INDEX idx_gender (gender),
+    INDEX idx_availability (availability_status),
+    INDEX idx_name (name)
+);
+
 -- Create views for easier querying
 
 -- View to get all trends with their vertical and category information
@@ -104,6 +134,43 @@ GROUP BY t.id, t.name;
 CREATE INDEX idx_trends_name_fulltext ON trends(name);
 CREATE INDEX idx_verticals_name ON verticals(name);
 CREATE INDEX idx_trend_images_combined ON trend_images(trend_id, image_type);
+
+-- View to get all products with their trend and category information
+CREATE VIEW products_with_trends AS
+SELECT
+    p.id AS product_id,
+    p.product_id AS product_uuid,
+    p.name AS product_name,
+    p.product_type,
+    p.description AS product_description,
+    p.brand,
+    p.price,
+    p.currency,
+    p.color,
+    p.size,
+    p.material,
+    p.gender,
+    p.season,
+    p.availability_status,
+    p.image_url,
+    p.product_url,
+    t.id AS trend_id,
+    t.trend_id AS trend_uuid,
+    t.name AS trend_name,
+    t.description AS trend_description,
+    v.id AS vertical_id,
+    v.vertical_id AS vertical_uuid,
+    v.name AS vertical_name,
+    v.geo_zone,
+    c.id AS category_id,
+    c.name AS category_name,
+    c.description AS category_description,
+    p.created_at,
+    p.updated_at
+FROM products p
+JOIN trends t ON p.trend_id = t.id
+JOIN verticals v ON t.vertical_id = v.id
+JOIN categories c ON v.category_id = c.id;
 
 -- Example queries for reference:
 
@@ -148,4 +215,17 @@ LEFT JOIN verticals v ON c.id = v.category_id
 LEFT JOIN trends t ON v.id = t.vertical_id
 GROUP BY c.id, c.name, c.description
 ORDER BY trend_count DESC;
+
+-- Get products with trend and category context
+SELECT
+    p.product_type,
+    p.brand,
+    p.name as product_name,
+    t.name as trend_name,
+    c.name as category_name,
+    p.price,
+    p.availability_status
+FROM products_with_trends p
+WHERE p.availability_status = 'in_stock'
+ORDER BY p.category_name, p.trend_name;
 */
