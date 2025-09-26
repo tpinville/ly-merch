@@ -69,14 +69,35 @@ def generate_sql(json_objects):
         "TRUNCATE TABLE trend_images;",
         "TRUNCATE TABLE trends;",
         "TRUNCATE TABLE verticals;",
+        "DELETE FROM categories WHERE id NOT IN (1,2,3,4,5,6);",  # Keep predefined categories
         "SET FOREIGN_KEY_CHECKS = 1;",
         ""
     ])
 
     vertical_id_map = {}
     trend_id_map = {}
+    category_id_map = {}
     vertical_counter = 1
     trend_counter = 1
+    category_counter = 7  # Start after predefined categories
+
+    def get_category_id(category_name):
+        if category_name not in category_id_map:
+            # Check if it's a predefined category
+            predefined = {
+                'sneakers': 1, 'sandals': 2, 'dress_shoes': 3,
+                'boots': 4, 'flats': 5, 'heels': 6
+            }
+            if category_name in predefined:
+                category_id_map[category_name] = predefined[category_name]
+            else:
+                category_id_map[category_name] = category_counter
+                statements.append(
+                    f"INSERT INTO categories (id, name) VALUES ({category_counter}, '{category_name}');"
+                )
+                nonlocal category_counter
+                category_counter += 1
+        return category_id_map[category_name]
 
     for obj in json_objects:
         verticals = obj.get('verticals', [])
@@ -87,9 +108,14 @@ def generate_sql(json_objects):
             if vertical_uuid not in vertical_id_map:
                 vertical_id_map[vertical_uuid] = vertical_counter
                 name_escaped = vertical['name'].replace("'", "\\'")
+
+                # Extract category from vertical_id
+                category_name = vertical_uuid.split(':')[0]
+                category_id = get_category_id(category_name)
+
                 statements.append(
-                    f"INSERT INTO verticals (id, vertical_id, name, geo_zone) VALUES "
-                    f"({vertical_counter}, '{vertical_uuid}', '{name_escaped}', '{vertical['geo_zone']}');"
+                    f"INSERT INTO verticals (id, vertical_id, category_id, name, geo_zone) VALUES "
+                    f"({vertical_counter}, '{vertical_uuid}', {category_id}, '{name_escaped}', '{vertical['geo_zone']}');"
                 )
                 vertical_counter += 1
 
@@ -133,7 +159,7 @@ def main():
 
     try:
         # Parse JSON
-        json_objects = parse_json_file('frontend/alls.json')
+        json_objects = parse_json_file('alls.json')
 
         # Generate SQL
         print("📝 Generating SQL statements...")
@@ -148,11 +174,12 @@ def main():
         print(f"📊 Ready to import data!")
 
         # Show summary
+        categories = sum(1 for stmt in sql_statements if 'INSERT INTO categories' in stmt)
         verticals = sum(1 for stmt in sql_statements if 'INSERT INTO verticals' in stmt)
         trends = sum(1 for stmt in sql_statements if 'INSERT INTO trends' in stmt)
         images = sum(1 for stmt in sql_statements if 'INSERT INTO trend_images' in stmt)
 
-        print(f"📈 Summary: {verticals} verticals, {trends} trends, {images} images")
+        print(f"📈 Summary: {categories} categories, {verticals} verticals, {trends} trends, {images} images")
         print(f"\n🔧 To import the data, run:")
         print(f"   ./run_import.sh")
 

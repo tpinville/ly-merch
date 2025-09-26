@@ -88,17 +88,43 @@ def clear_existing_data(cursor):
     # Re-enable foreign key checks
     cursor.execute("SET FOREIGN_KEY_CHECKS = 1")
 
+def get_or_create_category(cursor, category_name: str) -> int:
+    """Get or create category and return its database ID"""
+    # Check if category exists
+    cursor.execute("SELECT id FROM categories WHERE name = %s", (category_name,))
+    result = cursor.fetchone()
+
+    if result:
+        return result[0]
+
+    # Create new category
+    insert_query = "INSERT INTO categories (name) VALUES (%s)"
+    cursor.execute(insert_query, (category_name,))
+
+    # Get the ID of the inserted category
+    cursor.execute("SELECT id FROM categories WHERE name = %s", (category_name,))
+    return cursor.fetchone()[0]
+
+def extract_category_from_vertical_id(vertical_id: str) -> str:
+    """Extract category from vertical_id (first part before colon)"""
+    return vertical_id.split(':')[0]
+
 def insert_vertical(cursor, vertical_data: Dict) -> int:
     """Insert a vertical and return its database ID"""
+    # Extract and get/create category
+    category_name = extract_category_from_vertical_id(vertical_data['vertical_id'])
+    category_id = get_or_create_category(cursor, category_name)
+
     insert_query = """
-        INSERT INTO verticals (vertical_id, name, geo_zone)
-        VALUES (%s, %s, %s)
+        INSERT INTO verticals (vertical_id, category_id, name, geo_zone)
+        VALUES (%s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
-        name = VALUES(name), geo_zone = VALUES(geo_zone)
+        category_id = VALUES(category_id), name = VALUES(name), geo_zone = VALUES(geo_zone)
     """
 
     cursor.execute(insert_query, (
         vertical_data['vertical_id'],
+        category_id,
         vertical_data['name'],
         vertical_data['geo_zone']
     ))
@@ -223,6 +249,7 @@ def verify_import(conn):
 
     # Count records in each table
     tables = {
+        'categories': 'SELECT COUNT(*) FROM categories',
         'verticals': 'SELECT COUNT(*) FROM verticals',
         'trends': 'SELECT COUNT(*) FROM trends',
         'trend_images': 'SELECT COUNT(*) FROM trend_images'
@@ -235,19 +262,20 @@ def verify_import(conn):
 
     # Show some sample data
     cursor.execute("""
-        SELECT v.name as vertical, t.name as trend,
+        SELECT c.name as category, v.name as vertical, t.name as trend,
                COUNT(ti.id) as image_count
-        FROM verticals v
+        FROM categories c
+        JOIN verticals v ON c.id = v.category_id
         JOIN trends t ON v.id = t.vertical_id
         LEFT JOIN trend_images ti ON t.id = ti.trend_id
-        GROUP BY v.id, t.id
-        ORDER BY v.name, t.name
+        GROUP BY c.id, v.id, t.id
+        ORDER BY c.name, v.name, t.name
         LIMIT 5
     """)
 
     print("\n📋 Sample data:")
     for row in cursor.fetchall():
-        print(f"  {row[0]} > {row[1]} ({row[2]} images)")
+        print(f"  {row[0]} > {row[1]} > {row[2]} ({row[3]} images)")
 
     cursor.close()
 
@@ -267,7 +295,7 @@ def main():
 
     try:
         # Parse JSON data
-        json_objects = parse_json_objects('frontend/alls.json')
+        json_objects = parse_json_objects('alls.json')
 
         if not json_objects:
             print("❌ No valid JSON objects found")
